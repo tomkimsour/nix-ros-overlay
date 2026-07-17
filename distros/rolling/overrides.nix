@@ -46,6 +46,58 @@ in {
     '';
   });
 
+  # Both patches are post-2.0.9003 upstream fixes; remove them when the
+  # packaged release includes them.
+  cartographer-ros = rosSuper.cartographer-ros.overrideAttrs ({
+    nativeBuildInputs ? [], buildInputs ? [], patches ? [], ...
+  }: {
+    # The CMake cleanup patch below adds pkg_search_module(CAIRO REQUIRED)
+    nativeBuildInputs = nativeBuildInputs ++ [ self.pkg-config ];
+    buildInputs = buildInputs ++ [ self.cairo ];
+    patches = patches ++ [
+      # Fix "fatal error: tf2/utils.h: No such file or directory"
+      # ref. https://github.com/ros2/cartographer_ros/pull/78
+      (self.fetchpatch2 {
+        name = "cartographer-ros-tf2-utils-hpp.patch";
+        url = "https://github.com/ros2/cartographer_ros/commit/f0d38dd8b3958f61c5e780b1244afb0072f414ec.patch?full_index=1";
+        hash = "sha256-YIzDAy66Mj2izX4w4JYQUZh5Wcfc57/BOoMK86lRyEE=";
+        relative = "cartographer_ros";
+      })
+      # Fix "Unknown CMake command "ament_target_dependencies"" caused by its
+      # removal from ament_cmake
+      (self.fetchpatch2 {
+        name = "cartographer-ros-cleanup-cmake.patch";
+        url = "https://github.com/ros2/cartographer_ros/commit/7246dc7f939d6571c7c94814f4a023c9e6ba93e1.patch?full_index=1";
+        hash = "sha256-z7og+416iLkkqdDYAIQbBYKoL6xndGtxRhse6FfJBfY=";
+        relative = "cartographer_ros";
+      })
+    ];
+  });
+
+  # Same CMake cleanup patch as cartographer-ros above, rebased onto
+  # cartographer_rviz; remove when the packaged release includes it.
+  cartographer-rviz = rosSuper.cartographer-rviz.overrideAttrs ({
+    patches ? [], postPatch ? "", ...
+  }: {
+    patches = patches ++ [
+      (self.fetchpatch2 {
+        name = "cartographer-rviz-cleanup-cmake.patch";
+        url = "https://github.com/ros2/cartographer_ros/commit/7246dc7f939d6571c7c94814f4a023c9e6ba93e1.patch?full_index=1";
+        hash = "sha256-uKebK6ULTfg52UxRexcdKJt8fLNusEwc5LUMR9GgYeI=";
+        relative = "cartographer_rviz";
+      })
+    ];
+    # rviz_common::Display::update() now takes std::chrono::nanoseconds
+    postPatch = postPatch + ''
+      substituteInPlace include/cartographer_rviz/submaps_display.h --replace-fail \
+        "void update(float , float) override;" \
+        "void update(std::chrono::nanoseconds, std::chrono::nanoseconds) override;"
+      substituteInPlace src/submaps_display.cpp --replace-fail \
+        "void SubmapsDisplay::update(const float , const float) {" \
+        "void SubmapsDisplay::update(std::chrono::nanoseconds, std::chrono::nanoseconds) {"
+    '';
+  });
+
   clips-vendor = lib.patchAmentVendorFile rosSuper.clips-vendor { };
 
   ecl-build = rosSuper.ecl-build.overrideAttrs ({

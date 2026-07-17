@@ -132,6 +132,16 @@ with rosSelf.lib; {
     '';
   });
 
+  # Add ABSL_ prefix to thread annotation macros. See details above.
+  cartographer-rviz = rosSuper.cartographer-rviz.overrideAttrs ({
+    postPatch ? "", ...
+  }: {
+    postPatch = postPatch + ''
+      sed -i -Ee 's/\<(LOCKS_EXCLUDED|EXCLUSIVE_LOCKS_REQUIRED|GUARDED_BY)\>/ABSL_\1/g' \
+          $(find -name \*.h -o -name \*.cpp )
+    '';
+  });
+
   cloudini-lib = (rosSuper.cloudini-lib.override {
     lz4 = self.lz4.overrideAttrs ({
       cmakeFlags ? [], ...
