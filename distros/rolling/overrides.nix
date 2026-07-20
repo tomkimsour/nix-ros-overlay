@@ -46,48 +46,46 @@ in {
     '';
   });
 
-  # Both patches are post-2.0.9003 upstream fixes; remove them when the
-  # packaged release includes them.
+  # rolling/lyrical dropped ament_target_dependencies and tf2/utils.h; take
+  # the full upstream range that modernizes the CMakeLists.txt to fix this
+  # (https://github.com/ros2/cartographer_ros/compare/1bbf9af...7433452).
+  # ROS_DISTRO is available in the sandbox (ros-environment is a buildInput
+  # here), which is what lets this single upstream-authored patch branch
+  # correctly per distro instead of us hand-patching each difference.
+  # This supersedes the glog>=0.7.0 patch from ros2-overlay.nix above, so we
+  # replace `patches` entirely instead of appending to it. Remove once the
+  # packaged release includes this range.
   cartographer-ros = rosSuper.cartographer-ros.overrideAttrs ({
-    nativeBuildInputs ? [], buildInputs ? [], patches ? [], ...
+    nativeBuildInputs ? [], buildInputs ? [], ...
   }: {
-    # The CMake cleanup patch below adds pkg_search_module(CAIRO REQUIRED)
+    # The range below adds pkg_search_module(CAIRO REQUIRED)
     nativeBuildInputs = nativeBuildInputs ++ [ self.pkg-config ];
     buildInputs = buildInputs ++ [ self.cairo ];
-    patches = patches ++ [
-      # Fix "fatal error: tf2/utils.h: No such file or directory"
-      # ref. https://github.com/ros2/cartographer_ros/pull/78
+    patches = [
       (self.fetchpatch2 {
-        name = "cartographer-ros-tf2-utils-hpp.patch";
-        url = "https://github.com/ros2/cartographer_ros/commit/f0d38dd8b3958f61c5e780b1244afb0072f414ec.patch?full_index=1";
-        hash = "sha256-YIzDAy66Mj2izX4w4JYQUZh5Wcfc57/BOoMK86lRyEE=";
-        relative = "cartographer_ros";
-      })
-      # Fix "Unknown CMake command "ament_target_dependencies"" caused by its
-      # removal from ament_cmake
-      (self.fetchpatch2 {
-        name = "cartographer-ros-cleanup-cmake.patch";
-        url = "https://github.com/ros2/cartographer_ros/commit/7246dc7f939d6571c7c94814f4a023c9e6ba93e1.patch?full_index=1";
-        hash = "sha256-z7og+416iLkkqdDYAIQbBYKoL6xndGtxRhse6FfJBfY=";
+        name = "cartographer-ros-modernize-cmake.patch";
+        url = "https://github.com/ros2/cartographer_ros/compare/1bbf9af3d250ba7d17f9b2340e7fe01ac22cf7a7...743345256b43a7fd95765d40c7332b6f31ab66bb.diff?full_index=1";
+        hash = "sha256-KQsuYKth6vsucAs10G2BX2QKgxe8/26ZCNnrVNEe3fM=";
         relative = "cartographer_ros";
       })
     ];
   });
 
-  # Same CMake cleanup patch as cartographer-ros above, rebased onto
-  # cartographer_rviz; remove when the packaged release includes it.
+  # See cartographer-ros above; same upstream range, rebased onto
+  # cartographer_rviz. Remove once the packaged release includes it.
   cartographer-rviz = rosSuper.cartographer-rviz.overrideAttrs ({
     patches ? [], postPatch ? "", ...
   }: {
     patches = patches ++ [
       (self.fetchpatch2 {
-        name = "cartographer-rviz-cleanup-cmake.patch";
-        url = "https://github.com/ros2/cartographer_ros/commit/7246dc7f939d6571c7c94814f4a023c9e6ba93e1.patch?full_index=1";
-        hash = "sha256-uKebK6ULTfg52UxRexcdKJt8fLNusEwc5LUMR9GgYeI=";
+        name = "cartographer-rviz-modernize-cmake.patch";
+        url = "https://github.com/ros2/cartographer_ros/compare/1bbf9af3d250ba7d17f9b2340e7fe01ac22cf7a7...743345256b43a7fd95765d40c7332b6f31ab66bb.diff?full_index=1";
+        hash = "sha256-YLrqZYto/FgvAxUSQ4qaUUUJXQQqsPuMz1akBfmyCgo=";
         relative = "cartographer_rviz";
       })
     ];
-    # rviz_common::Display::update() now takes std::chrono::nanoseconds
+    # rviz_common::Display::update() now takes std::chrono::nanoseconds; not
+    # yet addressed upstream (see https://github.com/ros2/cartographer_ros).
     postPatch = postPatch + ''
       substituteInPlace include/cartographer_rviz/submaps_display.h --replace-fail \
         "void update(float , float) override;" \
